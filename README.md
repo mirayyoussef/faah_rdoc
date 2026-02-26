@@ -14,6 +14,7 @@ overview of all participants w multiple T1 scans is in\
 **YOUD**: youd-curb175-2020\
 **NOUD**: noud-curb174-2020\
 **PTSD**: ptsd-CURB030-2018\
+**SAD/SAHC**: 
 
 Participants who didnt have bidsified data and had to be reran:\
  OLD-NONBIDS-STUDIES\
@@ -28,3 +29,4 @@ Participants who didnt have bidsified data and had to be reran:\
  `templates`
  
 
+# Local copy of the data is on Raid
