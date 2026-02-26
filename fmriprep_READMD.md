@@ -31,3 +31,9 @@ Participants who didnt have bidsified data and had to be reran:\
  
 
 # Local Raid fMRIPREP data organization
+
+
+# fMRIprep output description
+
+_preproc_bold.nii.gz
+confounds.tsv
