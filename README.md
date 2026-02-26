@@ -1,3 +1,4 @@
+# SCC fMRIPREP data organization
 On the scc all fmriprep outputs are at\ 
 `/imaging/scratch/Boileau/miyoussef/mri`
 
@@ -29,4 +30,4 @@ Participants who didnt have bidsified data and had to be reran:\
  `templates`
  
 
-# Local copy of the data is on Raid
+# Local Raid fMRIPREP data organization
