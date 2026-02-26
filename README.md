@@ -19,7 +19,7 @@ Participants who didnt have bidsified data and had to be reran:\
  OLD-NONBIDS-STUDIES\
  NONBIDS-STUDIES
  
- An overview of fmriprep QC notes by Teo are in\ 
+ An overview of fmriprep QC notes by Teo are in 
  `QC`
  
  can disregard these temporary folders\
