@@ -37,3 +37,6 @@ Participants who didnt have bidsified data and had to be reran:\
 
 _preproc_bold.nii.gz\
 confounds.tsv
+
+# BIDS and DCM source data location
+... plz add
