@@ -1,7 +1,7 @@
 # Miray's pipeline for cleaning, standardizing, bidsifying data, and running fmriprep
 This document outlines the scripts used for organizing, standardizing, and converting MRI data into BIDS format. 
 Each section corresponds to one script, with its function and detailed workflow.
-PIPELINE OVERVIEW:
+##PIPELINE OVERVIEW:
 [1] Rename raw MRI folders using Name_Info.txt (ONLY FOR OLDER STUDIES)
      └─ bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/extract_txt.sh
 [2] Standardize folder names & group into isolated_measures
