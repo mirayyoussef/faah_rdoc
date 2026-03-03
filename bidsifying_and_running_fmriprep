@@ -165,7 +165,7 @@ Then, on the SCC create 2 new folders
 mkdir work (clean this after each fmriprep job finishes running)
 mkdir temp (clean this after each fmriprep job finishes running)
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
-7. Running fmriprep on SCC
+8. Running fmriprep on SCC
 Once your BIDS_OUPUT folder and everything else is uploaded, you can run two fmriprep codes:
 sbatch /path/to/fmriprep_code/run_fmriprep_curb_anat.sh
 sbatch /path/to/fmriprep_code/run_fmriprep_curb_func.sh
