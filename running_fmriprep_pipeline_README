@@ -14,4 +14,9 @@ Then, on the SCC create 2 new folders
 mkdir work
 mkdir temp
 
-Once your BIDS_OUPUT folder is uploaded, you can run fmriprep
+Once your BIDS_OUPUT folder is uploaded, you can run two fmriprep codes
+sbatch /path/to/fmriprep_code/run_fmriprep_curb_anat.sh
+sbatch /path/to/fmriprep_code/run_fmriprep_curb_func.sh
+
+This will create two "jobs" for the cluster and will give you a job ID for each one.
+You can check on their progress by typing "squeue jobID"
