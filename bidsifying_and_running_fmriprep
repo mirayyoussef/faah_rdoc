@@ -1,4 +1,4 @@
-Miray's Cleaning, standardizing, and bidsifying data pipeline
+Miray's pipeline for cleaning, standardizing, bidsifying data, and running fmriprep
 This document outlines the scripts used for organizing, standardizing, and converting MRI data into BIDS format. 
 Each section corresponds to one script, with its function and detailed workflow.
 PIPELINE OVERVIEW:
@@ -20,6 +20,11 @@ PIPELINE OVERVIEW:
           └─ bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/renameJSONnii2bidsout.sh
 [6] Create sublists for participants with functional and anatomical data
      └─ bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/create_func_and_nofunc_sublists
+[7] Uploading data to SCC
+     └─ scp -v -r /path/to/folder/you/wanna/move scc_username@local_computer_ip_address:/output/path/in/scc
+[8] Running fmriprep on SCC (LOG IN TO THE SCC FIRST)
+     └─   sbatch /path/to/fmriprep_code/run_fmriprep_curb_anat.sh
+          sbatch /path/to/fmriprep_code/run_fmriprep_curb_func.sh
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
 1. Rename MRI Folders with Name_Info.txt (ONLY FOR OLDER STUDIES)
 Command: bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/extract_txt.sh
@@ -142,3 +147,31 @@ This script scans a BIDS output directory for participant folders (named sub-*) 
      b. Adds the clean ID to the ALL list.
      c. Checks whether a "func" subfolder exists anywhere inside the participant folder.
      d. Adds the ID to either the FUNC or NO_FUNC list accordingly.
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+7. Uploading data to SCC
+Once all your mri data is bidsified, it's time to run fmriprep. 
+It's better to run it on a cluster (you can run it locally, but this will take much longer)
+A cluster that I like to use is the SCC. Fist you have to set up an SCC account, once you do that you're ready to get started!
+
+First you have to upload three folders from your local computer unto the SCC
+BIDS_OUTPUT: this is the path to your bids
+fmriprep codes: /Raid/Current/Miray/MRI/codes/codes/fmriprep_code (you only have to upload this once for all your studies)
+templates:/Raid/Current/Miray/MRI/templates (you only have to upload this once for all your studies)
+
+To upload folders to SCC, you have to open a new terminal (do not log into SCC!) and type command: 
+scp -v -r /path/to/folder/you/wanna/move scc_username@local_computer_ip_address:/output/path/in/scc
+
+Then, on the SCC create 2 new folders
+mkdir work (clean this after each fmriprep job finishes running)
+mkdir temp (clean this after each fmriprep job finishes running)
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+7. Running fmriprep on SCC
+Once your BIDS_OUPUT folder and everything else is uploaded, you can run two fmriprep codes:
+sbatch /path/to/fmriprep_code/run_fmriprep_curb_anat.sh
+sbatch /path/to/fmriprep_code/run_fmriprep_curb_func.sh
+
+This will create two "jobs" for the cluster and will give you a job ID for each one.
+You can check on their progress by typing "squeue jobID"
+Participants that successfully ran will have .htmls in the fmriprep_outputs folder
+
+Congratulations! You just ran fmriprep!
