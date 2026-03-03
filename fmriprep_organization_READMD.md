@@ -1,5 +1,5 @@
 # SCC fMRIPREP data organization
-On the scc all fmriprep outputs are at\ 
+On the scc all fmriprep outputs and bids are at\ 
 `/imaging/scratch/Boileau/miyoussef/mri`
 
 overview of processed participant data and related QC is in\
@@ -15,7 +15,9 @@ overview of all participants w multiple T1 scans is in\
 **YOUD**: youd-curb175-2020\
 **NOUD**: noud-curb174-2020\
 **PTSD**: ptsd-CURB030-2018\
-**SAD/SAHC**: 
+**SAD**:
+**SAHC**: 
+**SADE**:
 
 Participants who didnt have bidsified data and had to be reran:\
  OLD-NONBIDS-STUDIES\
@@ -29,7 +31,6 @@ Participants who didnt have bidsified data and had to be reran:\
  `temp`\
  `templates`
  
-
 # Local Raid fMRIPREP data organization
 
 <add desc>
