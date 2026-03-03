@@ -1,0 +1,240 @@
+# MRI Data Cleaning, Standardization, BIDSification & fMRIPrep Pipeline
+
+> This document outlines the scripts used for organizing, standardizing, and converting MRI data into BIDS format. Each section corresponds to one script, with its function and detailed workflow.
+
+---
+
+## 📋 Pipeline Overview
+
+| Step | Description | Script |
+|------|-------------|--------|
+| [1] | Rename raw MRI folders using `Name_Info.txt` *(older studies only)* | `extract_txt.sh` |
+| [2] | Standardize folder names & group into `isolated_measures` | `standardization.sh` |
+| [3] | Standardize DICOM SeriesDescription fields | `DICOM_seriesdesc_namechange.sh` |
+| [4] | BIDSify DICOMs | `dcm2bids_miray.sh` |
+| [5a] | Organize and BIDSify `.info`/TIFF metadata *(older studies only)* | `Info2JSON.py` |
+| [5b] | Rename and move JSON/NIfTI outputs into final BIDS folder | `renameJSONnii2bidsout.sh` |
+| [6] | Create sublists for participants with/without functional & anatomical data | `create_func_and_nofunc_sublists` |
+| [7] | Upload data to SCC | `scp` command |
+| [8] | Run fMRIPrep on SCC | `run_fmriprep_curb_anat.sh` / `run_fmriprep_curb_func.sh` |
+
+---
+
+## Step 1 — Rename MRI Folders with `Name_Info.txt`
+> ⚠️ **Older studies only**
+
+**Command:**
+```bash
+bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/extract_txt.sh
+```
+
+This script automates the renaming of MRI scan subfolders based on mappings provided in `Name_Info.txt` files for each participant.
+
+### Workflow
+For every participant directory (e.g., `FAAH001`), the script:
+1. Recursively searches for all `Name_Info.txt` files
+2. For each mapping file, reads lines of the form:
+   ```
+   Ex01859Se03    ASSET Calibration
+   ```
+   It attempts to find a subfolder named `Ex01859Se03` in the same directory and renames it to `ASSET Calibration` (with sanitization to avoid unsafe filesystem characters)
+3. Handles name conflicts by appending `(1)`, `(2)`, etc.
+4. Skips if no matching subfolder exists
+
+### Logging
+| Log File | Description |
+|----------|-------------|
+| `/Raid/Current/CURB174-2020/NOUD-026/xtracting_txt_and_renaming_log/<PARTICIPANT>.log` | Per-participant log |
+| `/Raid/Current/CURB174-2020/NOUD-026/xtracting_txt_and_renaming_log/all_Name_Info_paths.log` | Master log of all discovered `Name_Info.txt` paths |
+
+---
+
+## Step 2 — Standardize Folder Names & Group into `isolated_measures`
+
+**Command:**
+```bash
+bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/standardization.sh
+```
+
+This script scans all participant folders inside a study directory and identifies MRI scan subfolders that match known scan types. For each match, it copies the folder into a new `isolated_measures` subfolder using a standardized name.
+
+### Workflow
+- Creates an `isolated_measures` folder inside each participant directory
+- Recursively searches for subfolders matching (flexible, case-insensitive): `faces`, `cards`, `AxEPI … Rest/Resting/Resting State`, `Sag T1`, `Obl … Ax … PD`
+- Copies matches into `isolated_measures`, preserving names (`_1`, `_2` for duplicates)
+- Original folders remain unchanged
+
+### Naming Standardization
+| Original Name | Standardized Name |
+|---------------|-------------------|
+| `faces` | `AxEPI_Faces` |
+| `cards` | `AxEPI_Cards` |
+| `AxEPI Rest…` | `AxEPI_RestingState` |
+| `Sag T1` | `SagT1` |
+| `Obl Ax PD` | `OblAx_PDfseXL` |
+
+> ⚠️ **After this step:** Review `isolated_measures_copy_log.tsv` to check for duplicate subfolders. If duplicates exist, consult the master (or per-participant) log to determine the correct DICOM folder. Once decided, remove the `_1`, `_2` suffixes from the chosen folder name.
+
+---
+
+## Step 3 — Standardize DICOM SeriesDescription Fields
+
+**Command:**
+```bash
+bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/DICOM_seriesdesc_namechange.sh
+```
+
+This script updates the `SeriesDescription` DICOM tag `(0008,103E)` for every DICOM file found inside all `isolated_measures` folders.
+
+### Workflow
+1. Searches the study directory for all folders named `isolated_measures`
+2. Finds every `.dcm` / `.dicom` file recursively inside each
+3. Reads the name of each file's direct parent folder (e.g. `AxEPI_Faces`) and sets it as the `SeriesDescription` tag
+4. Skips files that already have the correct `SeriesDescription`
+5. Writes a per-folder log file called `DICOM_SeriesDescription_change_log`
+6. Prints a per-folder summary and a grand total summary at the end
+
+### Why This Matters
+After renaming folders in Step 2, this script ensures the DICOM metadata matches the new standardized folder names — which is required for BIDS conversion to run correctly.
+
+---
+
+## Step 4 — BIDSify DICOMs
+
+**Command:**
+```bash
+bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/dcm2bids/dcm2bids_miray.sh
+```
+
+Converts DICOM data into BIDS format for all participants. Runs in parallel for efficiency.
+
+> 📄 **Config file required:** `/Raid/Current/Miray/codes/codes/dcm2bids/miray_config.json` — use this as a template!
+
+---
+
+## Step 5a — Organize and BIDSify `.info` / TIFF Files
+> ⚠️ **Older studies only** (studies with TIFFs for functional data instead of DICOMs)
+
+**Command:**
+```bash
+python3 /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/Info2JSON.py
+```
+
+This script scans a study directory for `.info` files inside `isolated_measures` folders and converts them into BIDS-compatible JSON sidecar files.
+
+### Workflow
+1. Recursively searches the study directory for all `.info` files inside `isolated_measures` folders
+2. Parses each `.info` file as a simple `key=value` text file
+3. Extracts and converts relevant MRI scan parameters (TR, TE, flip angle, slice thickness, acquisition time, etc.) into the correct units and formats required by BIDS
+4. Builds a BIDS-compatible JSON dictionary with standardized field names (e.g. `RepetitionTime`, `EchoTime`, `FlipAngle`)
+5. Writes the JSON file next to the `.info` file with the same name but a `.json` extension
+
+### Why This Matters
+Each BIDS scan needs a JSON sidecar file containing metadata in a specific format. This script automates that creation from raw `.info` metadata files produced by GE scanners.
+
+---
+
+## Step 5b — Rename and Move JSON/NIfTI Files to BIDS Output
+
+**Command:**
+```bash
+bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/renameJSONnii2bidsout.sh
+```
+
+This script finds all NIfTI (`.nii` / `.nii.gz`) and JSON (`.json`) files inside every `isolated_measures` folder, renames them to follow BIDS naming conventions, and moves them into a structured BIDS output directory.
+
+### Workflow
+1. Finds all folders named `isolated_measures` anywhere under `ROOT`
+2. For each `.nii`, `.nii.gz`, and `.json` file found inside:
+   - Makes a prefixed copy (`COPY_`) to avoid modifying the original
+   - Determines the participant ID by searching for a folder with prefix `FAAH` (e.g. `FAAH001`)
+   - Determines the BIDS scan label from the parent folder name (see mapping below)
+   - Renames the copy to BIDS format: `sub-<participantID>_<term>.<ext>`
+   - Updates `SeriesDescription` in JSON files to match the parent folder name
+   - Moves the renamed file to `DEST_ROOT/<participant>/func/`
+   - Gzip-compresses any uncompressed `.nii` files to `.nii.gz`
+3. Skips files whose parent folder name doesn't match a known mapping
+4. Handles filename collisions by appending `_1`, `_2`, etc.
+5. Logs all actions to STDERR with a `[stepwise]` prefix
+
+### Folder → BIDS Label Mapping
+| Folder Name | BIDS Label |
+|-------------|------------|
+| `SagT1_bravo_func` | `T1w` |
+| `AxEPI_RestingState` | `task-rest_bold` |
+| `AxEPI_Cards` | `task-cards_bold` |
+| `AxEPI_Faces` | `task-faces_bold` |
+
+**Example output filename:** `sub-FAAH001_task-rest_bold.nii.gz`
+
+---
+
+## Step 6 — Create Participant Sublists
+
+**Command:**
+```bash
+bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/create_func_and_nofunc_sublists
+```
+
+This script scans a BIDS output directory for participant folders (`sub-*`) and sorts them into three text lists.
+
+### Output Files
+| File | Contents |
+|------|----------|
+| `sublist_all.txt` | Every participant found |
+| `sublist_func.txt` | Participants **with** a `func/` folder |
+| `sublist_no_func.txt` | Participants **without** a `func/` folder |
+
+### Workflow
+1. Creates the three list files at the start of each run
+2. Loops over every folder starting with `sub-`
+3. Strips the `sub-` prefix to get the clean participant ID (e.g. `sub-FAAH001` → `FAAH001`)
+4. Checks whether a `func/` subfolder exists and sorts accordingly
+
+---
+
+## Step 7 — Upload Data to SCC
+
+Once all MRI data is BIDSified, upload the following three folders from your local machine to the SCC:
+
+| Folder | Notes |
+|--------|-------|
+| `BIDS_OUTPUT` | Your BIDS directory (upload for each study) |
+| `/Raid/Current/Miray/MRI/codes/codes/fmriprep_code` | Upload **once** for all studies |
+| `/Raid/Current/Miray/MRI/templates` | Upload **once** for all studies |
+
+**Upload command** *(run from a new terminal — do NOT log into SCC first)*:
+```bash
+scp -v -r /path/to/folder/you/wanna/move scc_username@local_computer_ip_address:/output/path/in/scc
+```
+
+### After Uploading — Create Working Directories on SCC
+```bash
+mkdir work   # Clean after each fMRIPrep job finishes
+mkdir temp   # Clean after each fMRIPrep job finishes
+```
+
+---
+
+## Step 8 — Run fMRIPrep on SCC
+
+> 🔐 **Log into the SCC first before running these commands.**
+
+```bash
+sbatch /path/to/fmriprep_code/run_fmriprep_curb_anat.sh
+sbatch /path/to/fmriprep_code/run_fmriprep_curb_func.sh
+```
+
+This creates two cluster jobs and returns a job ID for each.
+
+### Monitoring Jobs
+```bash
+squeue jobID
+```
+
+### Output
+Participants that successfully ran will have `.html` reports in the `fmriprep_outputs` folder.
+
+---
+
+🎉 **Congratulations! You just ran fMRIPrep!**
