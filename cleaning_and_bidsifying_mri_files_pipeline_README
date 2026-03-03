@@ -18,7 +18,8 @@ PIPELINE OVERVIEW:
           ↓
      [5b] Rename and move JSON/NIfTI outputs into final BIDS folder
           └─ bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/renameJSONnii2bidsout.sh
-
+[6] Create sublists for participants with functional and anatomical data
+     └─ bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/create_func_and_nofunc_sublists
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
 1. Rename MRI Folders with Name_Info.txt (ONLY FOR OLDER STUDIES)
 Command: bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/extract_txt.sh
@@ -124,3 +125,20 @@ follow the BIDS (Brain Imaging Data Structure) naming convention, and moves them
 Why this matters:
 BIDS is the international standard for organizing MRI data. Files must follow strict naming rules (e.g. sub-FAAH001_task-rest_bold.nii.gz) and
 be placed in the correct folders (e.g. func/). This script automates that conversion from raw scan folders to a valid BIDS layout.nt format.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+6. Create sublists for participants with functional and anatomical data
+bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/create_func_and_nofunc_sublists
+
+This script scans a BIDS output directory for participant folders (named sub-*) and sorts them into three text lists:
+     1. sublist_all.txt      — every participant found
+     2. sublist_func.txt     — participants who HAVE a func/ folder
+     3. sublist_no_func.txt  — participants who DO NOT have a func/ folder
+
+1. Creates the three list files at the start of each run.
+2. Loops over every folder in BIDS_OUTPUT whose name starts with "sub-".
+3. For each participant folder:
+     a. Strips the "sub-" prefix to get the clean participant ID (e.g. "sub-FAAH001" → "FAAH001").
+     b. Adds the clean ID to the ALL list.
+     c. Checks whether a "func" subfolder exists anywhere inside the participant folder.
+     d. Adds the ID to either the FUNC or NO_FUNC list accordingly.
