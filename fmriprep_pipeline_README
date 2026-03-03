@@ -1,0 +1,155 @@
+Miray's Cleaning, standardizing, and bidsifying data pipeline
+This document outlines the scripts used for organizing, standardizing, and converting MRI data into BIDS format. Each section corresponds to one script, with its function and detailed workflow.
+PIPELINE OVERVIEW:
+[1] Rename raw MRI folders using Name_Info.txt
+     └─ bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/extract_txt.sh
+[2] Standardize folder names & group into isolated_measures
+     └─ bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/standardization.sh
+          ↓
+[3] Standardize DICOM SeriesDescription fields
+     └─ bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/DICOM_seriesdesc_namechange.sh
+          ↓
+[4] BIDSify DICOMs (convert into BIDS structure)
+     └─ bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/dcm2bids/dcm2bids_miray.sh
+          ↓
+[4b] Organize and BIDSify .info/.tiff metadata (if present)
+     └─ python3 /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/Info2JSON.py
+          ↓
+[5] Rename and move JSON/NIfTI outputs into final BIDS folder
+     └─ bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/renameJSONnii2bidsout.sh
+
+------------------------------------------------------------------------------
+1. Rename MRI Folders with Name_Info.txt (ONLY FOR OLDER STUDIES)
+Command: bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/extract_txt.sh
+This script automates the renaming of MRI scan subfolders based on mappings provided in "Name_Info.txt" files for each participant 
+#
+#   For every participant directory (e.g., FAAH001), the script:
+#     1. Recursively searches for all "Name_Info.txt" files.
+#     2. For each mapping file, reads lines of the form:
+#         i.e.  Ex01859Se03    ASSET Calibration
+#        It attempts to find a subfolder named "Ex01859Se03" in the same
+#        directory as the mapping file and renames the subfolder to "ASSET Calibration"
+#        (with sanitization to avoid unsafe filesystem characters).
+#     3. Handles name conflicts by appending "(1)", "(2)", etc.
+#     4. Skips if no matching subfolder exists.
+#
+# Logging:
+#   - A per-participant log is written to:
+#         /Raid/Current/CURB174-2020/NOUD-026/xtracting_txt_and_renaming_log/<PARTICIPANT>.log
+#   - A master log listing ALL discovered "Name_Info.txt" paths is written to:
+#         /Raid/Current/CURB174-2020/NOUD-026/xtracting_txt_and_renaming_log/all_Name_Info_paths.log
+---------------------------------------------------------------------------------
+
+2. Standardize Folder Names & Group into isolated_measures
+Command:bash /Raid/Current/Miray/MRI/codes/codes/cleaning_and_bidsifying/standardization.sh
+
+This script scans all participant folders inside a study directory and identifies MRI scan subfolders that match known scan types 
+(e.g. Faces, Cards, Resting State, T1, PD). For each match, it copies the folder into a new subfolder called "isolated_measures" inside 
+that participant's directory, using a standardized name (e.g. "AxEPI_Faces", "SagT1").
+- Creates an isolated_measures folder inside each participant directory.
+- Recursively searches for subfolders matching (flexible, case-insensitive): faces, cards, AxEPI … Rest/Resting/Resting State, Sag T1, Obl … Ax … PD
+- Copies matches into isolated_measures, preserving names (_1, _2 for duplicates).
+- Renames copies into standardized names:
+    faces → AxEPI_Faces
+    cards → AxEPI_Cards
+    AxEPI Rest… → AxEPI_RestingState
+    Sag T1 → SagT1
+    Obl Ax PD → OblAx_PDfseXL
+Original folders remain unchanged.
+
+---------------------------------------------------------------------------------
+3.
+--------------------------------------------------------------------------------------
+4. BIDSify DICOMs
+Script:
+
+bash dcm2bids/dcm2bids_miray.sh
+
+Description:
+Converts DICOM data into BIDS format for all participants in the CURB139-2012 dataset. Runs in parallel for efficiency.
+
+Workflow:
+- Defines paths:
+  base_dir = dataset root, output_dir = BIDS folder.
+- Defines process_participant:
+  * Strips hyphens from participant folder name for participant ID.
+  * Runs dcm2bids with input=isolated_measures, config=/home/sklab/miray/code_theo/codes/dcm2bids/Historics_config.json, options (--auto_extract_entities, --clobber).
+- Discovers participants using find.
+- Runs in parallel via GNU parallel (sequential if unavailable).
+
+Requirements: bash, GNU parallel, dcm2bids
+
+Notes:
+- Each participant’s isolated_measures is processed independently.
+- Parallelization speeds up large datasets.
+
+---------------------------------------------------------------------------------
+5a. Organize and BIDSify .info / TIFF Files
+Script:
+
+python3 info2JSON.py
+
+Description:
+Converts .info files into BIDS-like .json sidecars.
+
+Workflow:
+- Scans a directory (default: FAAH006/AxEPI_Cards) for .info files.
+- Reads key=value lines into a dictionary.
+- Extracts and normalizes values (Scanner ID, Series Description, Coil, Exam Description, Time of Scan, Exam/Series Number, Frequency, Slice Thickness, Skip, TR, TE, Flip Angle, Matrix, PSD).
+- Cleans units: ms→seconds, Hz→MHz, Time→HH:MM:SS.000000.
+- Adds constants: Modality=MR, MagneticFieldStrength=3, Manufacturer=GE, InstitutionName=CAMH, BodyPartExamined=HEAD, ImageType=[ORIGINAL,PRIMARY,OTHER].
+- Removes empty values.
+- Saves output .json next to each .info.
+
+Dependencies: Python stdlib (argparse, json, re, pathlib, typing).
+
+Notes:
+- Assumes 3T GE scanner.
+- Ignores unrecognized keys.
+
+---------------------------------------------------------------------------------
+5b. Rename and Move JSON/NIfTI Files to BIDS Output
+Script:
+bash renameJSONnii2bidsout.sh
+
+Description:
+Renames and organizes JSON + NIfTI files into BIDS-compliant format.
+
+Workflow:
+- Scans only SRC_DIR (non-recursive) for .nii, .nii.gz, .json.
+- Copies each file with prefix COPY_.
+- Updates JSON 'SeriesDescription' = parent folder name.
+- Extracts participant ID (three levels up; uses FAAH### if present).
+- Renames files to BIDS convention:
+  SagT1_bravo_func → sub-<ID>_T1w
+  AxEPI_RestingState → sub-<ID>_task-rest_bold
+  AxEPI_Cards → sub-<ID>_task-cards_bold
+  AxEPI_Faces → sub-<ID>_task-faces_bold
+- Creates participant folder in /home/sklab/miray/bids_apps/BIDS_OUTPUT/<participantID>
+- Ensures func/ exists inside participant folder.
+- Moves renamed files into func/.
+- If NIfTI is .nii, gzips to .nii.gz; leaves as-is if already gzipped.
+
+Notes & Safeguards:
+- Non-recursive scan.
+- JSON edits with sed.
+- Duplicate filenames suffixed _1, _2.
+- Logs to STDERR.
+----------------------------------------------------------------------------------
+5c. Moves functional T1s to the anat subfolders since they have analysis priority if they exist
+
+Script:
+bash func_T1w_organization.sh
+
+# For each participant under /home/sklab/miray/bids_apps/BIDS_OUTPUT:
+#   If func/ contains any *T1w* FILES (case-insensitive):
+#     1) Create anat/"T1 baseline"/
+#     2) Move T1w FILES from anat/ -> anat/"T1 baseline"/
+#     3) Move T1w FILES from func/ -> anat/   (not into "T1 baseline")
+
+-----------------------------------------------
+bash create_bids_sublists_and_fake_func
+- Extracts ALL participant folders under BIDS_OUTPUT, removes sub- prefix → sublist_all.txt
+- Separates participants WITH a func folder → sublist_func.txt
+- Separates participants WITHOUT a func folder → sublist_no_func.txt
+- Copies the func folder from sub-FAAH007 into only those listed in sublist_no_func.txt
