@@ -1,4 +1,4 @@
-Miray's pipeline for cleaning, standardizing, bidsifying data, and running fmriprep
+# Miray's pipeline for cleaning, standardizing, bidsifying data, and running fmriprep
 This document outlines the scripts used for organizing, standardizing, and converting MRI data into BIDS format. 
 Each section corresponds to one script, with its function and detailed workflow.
 PIPELINE OVERVIEW:
