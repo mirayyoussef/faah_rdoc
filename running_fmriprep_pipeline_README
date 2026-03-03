@@ -1,0 +1,17 @@
+Once all your mri data is bidsified, it's time to run fmriprep. 
+It's better to run it on a cluster (you can run it locally, but this will take much longer)
+A cluster that I like to use is the SCC. Fist you have to set up an SCC account, once you do that you're ready to get started!
+
+First you have to upload all your bidsified data along with your fmriprep codes,and templates folder, unto the SCC
+These are the paths to these:
+  fmriprep codes: /Raid/Current/Miray/MRI/codes/codes/fmriprep_code
+  templates:/Raid/Current/Miray/MRI/templates
+
+To upload files to SCC, you have to open a new terminal (do not log into SCC!) and type command: 
+scp -v -r /path/to/folder/you/wanna/move scc_username@local_computer_ip_address:/output/path/in/scc
+
+Then, on the SCC create 2 new folders
+mkdir work
+mkdir temp
+
+Once your BIDS_OUPUT folder is uploaded, you can run fmriprep
